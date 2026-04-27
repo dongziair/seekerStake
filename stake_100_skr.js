@@ -41,7 +41,7 @@ const PHONE_WALLET_ACCOUNT_KEYS = [
   COMPUTE_BUDGET_PROGRAM_ID
 ];
 
-const DEFAULT_RPC = 'https://api.mainnet-beta.solana.com';
+const PUBLIC_RPC_URL = 'https://api.mainnet-beta.solana.com';
 const COUNT = 100;
 const DURATION_MS = 60 * 60 * 1000;
 const SAFETY_BUFFER_MS = 5 * 60 * 1000;
@@ -119,6 +119,19 @@ function makeRandomSchedule(count, totalMs) {
   const delays = weights.map((weight) => Math.floor((weight / sum) * totalMs));
 
   return [0, ...delays];
+}
+
+function uniqueValues(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+function getRpcUrls() {
+  return uniqueValues([
+    argValue('--rpc', undefined),
+    process.env.HELIUS_RPC_URL,
+    process.env.SOLANA_RPC_URL,
+    PUBLIC_RPC_URL
+  ]);
 }
 
 function makePhoneStyleMessage(recentBlockhash) {
@@ -204,20 +217,32 @@ async function sendPhoneStyleTransaction(connection, payer) {
   return signature;
 }
 
-async function sendWithRetry(connection, payer, attemptIndex) {
-  try {
-    return await sendPhoneStyleTransaction(connection, payer);
-  } catch (error) {
-    console.error(`[${attemptIndex}/${COUNT}] first send failed: ${error.message}`);
+async function sendWithRetry(connections, payer, attemptIndex) {
+  let lastError;
+
+  for (let round = 1; round <= 2; round += 1) {
+    for (const { label, connection } of connections) {
+      try {
+        if (round > 1) {
+          console.log(`[${attemptIndex}/${COUNT}] retrying with ${label}`);
+        }
+        return await sendPhoneStyleTransaction(connection, payer);
+      } catch (error) {
+        lastError = error;
+        console.error(`[${attemptIndex}/${COUNT}] ${label} send failed: ${error.message}`);
+      }
+    }
+
     await sleep(RETRY_DELAY_MS);
-    return sendPhoneStyleTransaction(connection, payer);
   }
+
+  throw lastError;
 }
 
 async function main() {
   const execute = hasFlag('--execute');
   const repeatDaily = hasFlag('--repeat-daily');
-  const rpcUrl = argValue('--rpc', process.env.SOLANA_RPC_URL || DEFAULT_RPC);
+  const rpcUrls = getRpcUrls();
   const waitBudgetMs = Number(argValue('--wait-ms', DURATION_MS - SAFETY_BUFFER_MS));
   const payer = loadKeypair();
 
@@ -226,7 +251,7 @@ async function main() {
   }
 
   console.log(`wallet: ${payer.publicKey.toBase58()}`);
-  console.log(`rpc: ${rpcUrl}`);
+  console.log(`rpc priority: ${rpcUrls.join(' -> ')}`);
   console.log(`mode: ${execute ? 'EXECUTE' : 'DRY RUN'}`);
   console.log(`repeat daily: ${repeatDaily ? 'yes' : 'no'}`);
   console.log(`planned stakes: ${COUNT} x 1 SKR`);
@@ -236,7 +261,10 @@ async function main() {
     return;
   }
 
-  const connection = new Connection(rpcUrl, 'confirmed');
+  const connections = rpcUrls.map((url, index) => ({
+    label: index === 0 ? `primary RPC (${url})` : `fallback RPC (${url})`,
+    connection: new Connection(url, 'confirmed')
+  }));
   let round = 1;
 
   while (true) {
@@ -258,7 +286,7 @@ async function main() {
       const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
       console.log(`[${index + 1}/${COUNT}] staking 1 SKR, elapsed ${elapsedSeconds}s`);
 
-      const signature = await sendWithRetry(connection, payer, index + 1);
+      const signature = await sendWithRetry(connections, payer, index + 1);
       const record = {
         round,
         index: index + 1,

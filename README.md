@@ -74,7 +74,14 @@ Keep the terminal and computer running for this mode. Stop it with `Ctrl+C`.
 
 ## Optional Flags
 
-Use a different RPC endpoint:
+Use Helius first, with public RPC fallback:
+
+```env
+HELIUS_RPC_URL=https://mainnet.helius-rpc.com/?api-key=your_api_key
+SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+```
+
+Use a different RPC endpoint from the command line:
 
 ```powershell
 npm run stake:skr -- --execute --rpc https://your-rpc.example
