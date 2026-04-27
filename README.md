@@ -4,7 +4,7 @@ This folder contains a small Node.js script that repeats the same SKR stake call
 
 https://solscan.io/tx/H9Fz3yjpFT6ieMoPpSMnVmWTHznHRfDrozbA46ESVF4MYe99KWWu72PhZZy8mnCMqHwDkJs3CSqSvyS27D1r8Dm
 
-The script stakes `1 SKR` per transaction, `100` times per round, with random timing so the round finishes within about one hour. It can optionally repeat every 24 hours.
+The script stakes `1 SKR` per transaction, randomly `100` to `110` times per round, with random timing so the round finishes within about two hours. It can optionally repeat every 24 hours.
 
 ## What It Does
 
@@ -13,7 +13,7 @@ The script stakes `1 SKR` per transaction, `100` times per round, with random ti
 - Uses the same outer stake instruction data from the reference transaction.
 - Uses the same account list and instruction order as the reference transaction.
 - Manually builds the legacy message with the same global account key order observed in Seeker wallet transactions.
-- Sends `100` stake transactions per round.
+- Sends `100` to `110` stake transactions per round.
 - Writes confirmed transaction signatures to a local `stake-results-*.jsonl` file.
 
 Some transaction fields cannot be identical every time, including signature, recent blockhash, slot, timestamp, and network-dependent fees.
@@ -56,7 +56,7 @@ Dry run does not send transactions.
 
 ## Run Once
 
-Stake `100` times, randomly spaced within the one-hour window:
+Stake `100` to `110` times, randomly spaced within the two-hour window:
 
 ```powershell
 npm run stake:skr -- --execute
@@ -64,7 +64,7 @@ npm run stake:skr -- --execute
 
 ## Repeat Every 24 Hours
 
-Stake `100` times, wait 24 hours after the round finishes, then repeat:
+Stake `100` to `110` times, wait 24 hours after the round finishes, then repeat:
 
 ```powershell
 npm run stake:skr -- --execute --repeat-daily
@@ -105,7 +105,7 @@ Change the random wait budget in milliseconds:
 npm run stake:skr -- --execute --wait-ms 3300000
 ```
 
-The default wait budget is 55 minutes, leaving a small buffer inside the one-hour target.
+The default wait budget is 115 minutes, leaving a small buffer inside the two-hour target.
 
 ## Safety Notes
 

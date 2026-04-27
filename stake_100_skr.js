@@ -42,8 +42,9 @@ const PHONE_WALLET_ACCOUNT_KEYS = [
 ];
 
 const PUBLIC_RPC_URL = 'https://api.mainnet-beta.solana.com';
-const COUNT = 100;
-const DURATION_MS = 60 * 60 * 1000;
+const MIN_COUNT = 100;
+const MAX_COUNT = 110;
+const DURATION_MS = 2 * 60 * 60 * 1000;
 const SAFETY_BUFFER_MS = 5 * 60 * 1000;
 const RETRY_DELAY_MS = 5_000;
 const DAILY_REPEAT_DELAY_MS = 24 * 60 * 60 * 1000;
@@ -85,6 +86,10 @@ function hasFlag(name) {
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function randomIntInclusive(min, max) {
+  return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
 function loadKeypair() {
@@ -217,19 +222,19 @@ async function sendPhoneStyleTransaction(connection, payer) {
   return signature;
 }
 
-async function sendWithRetry(connections, payer, attemptIndex) {
+async function sendWithRetry(connections, payer, attemptIndex, count) {
   let lastError;
 
   for (let round = 1; round <= 2; round += 1) {
     for (const { label, connection } of connections) {
       try {
         if (round > 1) {
-          console.log(`[${attemptIndex}/${COUNT}] retrying with ${label}`);
+          console.log(`[${attemptIndex}/${count}] retrying with ${label}`);
         }
         return await sendPhoneStyleTransaction(connection, payer);
       } catch (error) {
         lastError = error;
-        console.error(`[${attemptIndex}/${COUNT}] ${label} send failed: ${error.message}`);
+        console.error(`[${attemptIndex}/${count}] ${label} send failed: ${error.message}`);
       }
     }
 
@@ -254,7 +259,7 @@ async function main() {
   console.log(`rpc priority: ${rpcUrls.join(' -> ')}`);
   console.log(`mode: ${execute ? 'EXECUTE' : 'DRY RUN'}`);
   console.log(`repeat daily: ${repeatDaily ? 'yes' : 'no'}`);
-  console.log(`planned stakes: ${COUNT} x 1 SKR`);
+  console.log(`planned stakes per round: ${MIN_COUNT}-${MAX_COUNT} x 1 SKR`);
 
   if (!execute) {
     console.log('Dry run only. Add --execute to send real mainnet transactions.');
@@ -268,35 +273,38 @@ async function main() {
   let round = 1;
 
   while (true) {
+    const count = randomIntInclusive(MIN_COUNT, MAX_COUNT);
     const logPath = argValue('--log', `stake-results-${Date.now()}-round-${round}.jsonl`);
-    const schedule = makeRandomSchedule(COUNT, waitBudgetMs);
+    const schedule = makeRandomSchedule(count, waitBudgetMs);
     const startedAt = Date.now();
 
     console.log(`round: ${round}`);
+    console.log(`planned stakes this round: ${count} x 1 SKR`);
     console.log(`planned random wait total: ${Math.round(schedule.reduce((a, b) => a + b, 0) / 1000)} seconds`);
     console.log(`log file: ${logPath}`);
 
-    for (let index = 0; index < COUNT; index += 1) {
+    for (let index = 0; index < count; index += 1) {
       const delay = schedule[index];
       if (delay > 0) {
-        console.log(`[${index + 1}/${COUNT}] waiting ${Math.round(delay / 1000)}s`);
+        console.log(`[${index + 1}/${count}] waiting ${Math.round(delay / 1000)}s`);
         await sleep(delay);
       }
 
       const elapsedSeconds = Math.round((Date.now() - startedAt) / 1000);
-      console.log(`[${index + 1}/${COUNT}] staking 1 SKR, elapsed ${elapsedSeconds}s`);
+      console.log(`[${index + 1}/${count}] staking 1 SKR, elapsed ${elapsedSeconds}s`);
 
-      const signature = await sendWithRetry(connections, payer, index + 1);
+      const signature = await sendWithRetry(connections, payer, index + 1, count);
       const record = {
         round,
         index: index + 1,
+        roundCount: count,
         signature,
         elapsedSeconds,
         sentAt: new Date().toISOString()
       };
 
       appendFileSync(logPath, `${JSON.stringify(record)}\n`);
-      console.log(`[${index + 1}/${COUNT}] confirmed: https://solscan.io/tx/${signature}`);
+      console.log(`[${index + 1}/${count}] confirmed: https://solscan.io/tx/${signature}`);
     }
 
     console.log(`round ${round} done in ${Math.round((Date.now() - startedAt) / 1000)} seconds`);
