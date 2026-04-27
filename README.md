@@ -12,6 +12,7 @@ The script stakes `1 SKR` per transaction, `100` times per round, with random ti
   `SKRskrmtL83pcL4YqLWt6iPefDqwXQWHSw9S9vz94BZ`
 - Uses the same outer stake instruction data from the reference transaction.
 - Uses the same account list and instruction order as the reference transaction.
+- Manually builds the legacy message with the same global account key order observed in Seeker wallet transactions.
 - Sends `100` stake transactions per round.
 - Writes confirmed transaction signatures to a local `stake-results-*.jsonl` file.
 

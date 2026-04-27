@@ -1,11 +1,10 @@
 import {
   Connection,
   Keypair,
-  PublicKey,
-  Transaction,
-  TransactionInstruction,
-  sendAndConfirmTransaction
+  Message,
+  PublicKey
 } from '@solana/web3.js';
+import { ed25519 } from '@noble/curves/ed25519';
 import bs58 from 'bs58';
 import { appendFileSync, existsSync, readFileSync } from 'node:fs';
 
@@ -26,19 +25,20 @@ const ORIGINAL_COMPUTE_BUDGET_DATA = [
   bs58.decode('3QGMXYP8FsXD')
 ];
 
-const STAKE_ACCOUNTS = [
-  { pubkey: new PublicKey('BfEsT4CDmsLmp4jdR8RZ2ATEAYXbsry1xNBD3wdK9kfq'), isSigner: false, isWritable: true },
-  { pubkey: new PublicKey('4HQy82s9CHTv1GsYKnANHMiHfhcqesYkK6sB3RDSYyqw'), isSigner: false, isWritable: true },
-  { pubkey: new PublicKey('DPJ58trLsF9yPrBa2pk6UaRkvqW8hWUYjawe788WBuqr'), isSigner: false, isWritable: true },
-  { pubkey: EXPECTED_WALLET, isSigner: true, isWritable: true },
-  { pubkey: EXPECTED_WALLET, isSigner: true, isWritable: true },
-  { pubkey: new PublicKey('9tEGCZsVvxg8dMJ3WbhJWb73BD5ZdE7EDA1R9DuMHukH'), isSigner: false, isWritable: true },
-  { pubkey: new PublicKey('8isViKbwhuhFhsv2t8vaFL74pKCqaFPQXo1KkeQwZbB8'), isSigner: false, isWritable: true },
-  { pubkey: new PublicKey('SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3'), isSigner: false, isWritable: true },
-  { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },
-  { pubkey: SYSTEM_PROGRAM_ID, isSigner: false, isWritable: false },
-  { pubkey: EVENT_AUTHORITY, isSigner: false, isWritable: false },
-  { pubkey: PROGRAM_ID, isSigner: false, isWritable: false }
+// Exact static account key order observed in all Seeker wallet reference txs.
+const PHONE_WALLET_ACCOUNT_KEYS = [
+  EXPECTED_WALLET,
+  new PublicKey('BfEsT4CDmsLmp4jdR8RZ2ATEAYXbsry1xNBD3wdK9kfq'),
+  new PublicKey('4HQy82s9CHTv1GsYKnANHMiHfhcqesYkK6sB3RDSYyqw'),
+  new PublicKey('DPJ58trLsF9yPrBa2pk6UaRkvqW8hWUYjawe788WBuqr'),
+  new PublicKey('9tEGCZsVvxg8dMJ3WbhJWb73BD5ZdE7EDA1R9DuMHukH'),
+  new PublicKey('8isViKbwhuhFhsv2t8vaFL74pKCqaFPQXo1KkeQwZbB8'),
+  new PublicKey('SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3'),
+  TOKEN_PROGRAM_ID,
+  SYSTEM_PROGRAM_ID,
+  EVENT_AUTHORITY,
+  PROGRAM_ID,
+  COMPUTE_BUDGET_PROGRAM_ID
 ];
 
 const DEFAULT_RPC = 'https://api.mainnet-beta.solana.com';
@@ -121,39 +121,96 @@ function makeRandomSchedule(count, totalMs) {
   return [0, ...delays];
 }
 
-function makeStakeTransaction() {
-  const stakeInstruction = new TransactionInstruction({
-    programId: PROGRAM_ID,
-    keys: STAKE_ACCOUNTS,
-    data: STAKE_ONE_SKR_DATA
+function makePhoneStyleMessage(recentBlockhash) {
+  return new Message({
+    header: {
+      numRequiredSignatures: 1,
+      numReadonlySignedAccounts: 0,
+      numReadonlyUnsignedAccounts: 5
+    },
+    accountKeys: PHONE_WALLET_ACCOUNT_KEYS,
+    recentBlockhash,
+    instructions: [
+      {
+        programIdIndex: 10,
+        accounts: [1, 2, 3, 0, 0, 4, 5, 6, 7, 8, 9, 10],
+        data: bs58.encode(STAKE_ONE_SKR_DATA)
+      },
+      {
+        programIdIndex: 11,
+        accounts: [],
+        data: bs58.encode(ORIGINAL_COMPUTE_BUDGET_DATA[0])
+      },
+      {
+        programIdIndex: 11,
+        accounts: [],
+        data: bs58.encode(ORIGINAL_COMPUTE_BUDGET_DATA[1])
+      }
+    ]
+  });
+}
+
+function encodeShortVecLength(length) {
+  const bytes = [];
+  let remaining = length;
+
+  while (true) {
+    let element = remaining & 0x7f;
+    remaining >>= 7;
+    if (remaining === 0) {
+      bytes.push(element);
+      break;
+    }
+    element |= 0x80;
+    bytes.push(element);
+  }
+
+  return Uint8Array.from(bytes);
+}
+
+function makeRawSignedTransaction(message, payer) {
+  const messageBytes = message.serialize();
+  const signature = ed25519.sign(messageBytes, payer.secretKey.slice(0, 32));
+  const signatureCount = encodeShortVecLength(1);
+  const rawTransaction = new Uint8Array(signatureCount.length + signature.length + messageBytes.length);
+
+  rawTransaction.set(signatureCount, 0);
+  rawTransaction.set(signature, signatureCount.length);
+  rawTransaction.set(messageBytes, signatureCount.length + signature.length);
+
+  return rawTransaction;
+}
+
+async function sendPhoneStyleTransaction(connection, payer) {
+  const latestBlockhash = await connection.getLatestBlockhash('confirmed');
+  const message = makePhoneStyleMessage(latestBlockhash.blockhash);
+  const rawTransaction = makeRawSignedTransaction(message, payer);
+
+  const signature = await connection.sendRawTransaction(rawTransaction, {
+    skipPreflight: false,
+    maxRetries: 3
   });
 
-  const computeBudgetInstructions = ORIGINAL_COMPUTE_BUDGET_DATA.map((data) => new TransactionInstruction({
-    programId: COMPUTE_BUDGET_PROGRAM_ID,
-    keys: [],
-    data
-  }));
+  const confirmation = await connection.confirmTransaction({
+    signature,
+    blockhash: latestBlockhash.blockhash,
+    lastValidBlockHeight: latestBlockhash.lastValidBlockHeight
+  }, 'confirmed');
 
-  return new Transaction().add(stakeInstruction, ...computeBudgetInstructions);
+  if (confirmation.value.err) {
+    throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
+  }
+
+  return signature;
 }
 
 async function sendWithRetry(connection, payer, attemptIndex) {
-  const transaction = makeStakeTransaction();
-
   try {
-    return await sendAndConfirmTransaction(connection, transaction, [payer], {
-      commitment: 'confirmed',
-      skipPreflight: false,
-      maxRetries: 3
-    });
+    return await sendPhoneStyleTransaction(connection, payer);
   } catch (error) {
     console.error(`[${attemptIndex}/${COUNT}] first send failed: ${error.message}`);
     await sleep(RETRY_DELAY_MS);
-    return sendAndConfirmTransaction(connection, makeStakeTransaction(), [payer], {
-      commitment: 'confirmed',
-      skipPreflight: false,
-      maxRetries: 3
-    });
+    return sendPhoneStyleTransaction(connection, payer);
   }
 }
 
