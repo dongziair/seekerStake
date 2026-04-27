@@ -16,7 +16,7 @@ const COMPUTE_BUDGET_PROGRAM_ID = new PublicKey('ComputeBudget111111111111111111
 const TOKEN_PROGRAM_ID = new PublicKey('TokenkegQfeZyiNwAJbNbGKPFXCWuBvf9Ss623VQ5DA');
 const SYSTEM_PROGRAM_ID = new PublicKey('11111111111111111111111111111111');
 const EVENT_AUTHORITY = new PublicKey('8rUTGg1XoyuvK9G64S7d37m3HtLZH24oPeMmXkpJH8ir');
-const EXPECTED_WALLET = new PublicKey('Ec5HcwRtw5SzxUhCVZ56itj6MpwtyTzFDdST2cgHdx3a');
+const EXPECTED_WALLET = new PublicKey('2aMKnHfhhNUTxBXuULD99e2iCDW2ri1k3FR8wKq9GMKv');
 
 // This is the exact outer instruction data from your successful Stake tx.
 const STAKE_ONE_SKR_DATA = bs58.decode('SXLVHmrGRvofJanwcCfNej');
@@ -28,10 +28,10 @@ const ORIGINAL_COMPUTE_BUDGET_DATA = [
 // Exact static account key order observed in all Seeker wallet reference txs.
 const PHONE_WALLET_ACCOUNT_KEYS = [
   EXPECTED_WALLET,
-  new PublicKey('9irKkqXCXqgSorZVM38Fc17LzQ8kJtsYYWSDjwxWvYm4'),
+  new PublicKey('D5FvzyQzUBb5G3Eo4UUByshwqdbS6urjQ6ycu6LempS4'),
   new PublicKey('4HQy82s9CHTv1GsYKnANHMiHfhcqesYkK6sB3RDSYyqw'),
   new PublicKey('DPJ58trLsF9yPrBa2pk6UaRkvqW8hWUYjawe788WBuqr'),
-  new PublicKey('J1aES9MKt6bw9rBk3ba95ZhWpY1GbAxgcqaDqcvSzyo8'),
+  new PublicKey('FdinVJ7Ptqiw3YLqwdvsueFeFfkSUWj9Ldd4e55xNSie'),
   new PublicKey('8isViKbwhuhFhsv2t8vaFL74pKCqaFPQXo1KkeQwZbB8'),
   new PublicKey('SKRbvo6Gf7GondiT3BbTfuRDPqLWei4j2Qy2NPGZhW3'),
   TOKEN_PROGRAM_ID,

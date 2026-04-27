@@ -2,7 +2,7 @@
 
 This folder contains a small Node.js script that repeats the same SKR stake call as the reference Solana transaction:
 
-https://solscan.io/tx/H9Fz3yjpFT6ieMoPpSMnVmWTHznHRfDrozbA46ESVF4MYe99KWWu72PhZZy8mnCMqHwDkJs3CSqSvyS27D1r8Dm
+https://solscan.io/tx/rVDnwrDgAXhDgE9utTTuV38GoNNQaw6qJvREwUoEFA2kFmChwqycP2t9fAcUrzqfqy3pLMGTa1BfnPcvukvtyGa
 
 The script stakes `1 SKR` per transaction, randomly `100` to `110` times per round, with random timing so the round finishes within about two hours. It can optionally repeat every 24 hours.
 
@@ -110,7 +110,7 @@ The default wait budget is 115 minutes, leaving a small buffer inside the two-ho
 ## Safety Notes
 
 - The script only accepts the expected wallet from the reference transaction:
-  `Ec5HcwRtw5SzxUhCVZ56itj6MpwtyTzFDdST2cgHdx3a`
+  `2aMKnHfhhNUTxBXuULD99e2iCDW2ri1k3FR8wKq9GMKv`
 - Make sure the wallet has enough SKR and SOL for fees.
 - A public RPC can rate limit or become unreliable. A private RPC is safer for repeated sends.
 - Review the script before running with `--execute`.
