@@ -1,0 +1,5 @@
+.env
+*.log
+stake-results-*.jsonl
+id.json
+keypair.json
