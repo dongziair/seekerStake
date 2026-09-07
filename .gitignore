@@ -3,3 +3,7 @@
 stake-results-*.jsonl
 id.json
 keypair.json
+wallets.json
+!wallets.example.json
+*wallet*.json
+!*.example.json

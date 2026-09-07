@@ -4,7 +4,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "stake:skr": "node stake_100_skr.js"
+    "stake:skr": "node stake_100_skr.js",
+    "stake:multi": "node multi_wallet_staker.js"
   },
   "dependencies": {
     "@solana/web3.js": "^1.98.0",

@@ -1,0 +1,14 @@
+[
+  {
+    "label": "Wallet-01",
+    "privateKey": "your_base58_private_key_here"
+  },
+  {
+    "label": "Wallet-02",
+    "privateKey": "[1,2,3,4,...64_integers_array...]"
+  },
+  {
+    "label": "Wallet-03",
+    "keypairPath": "D:\\path\\to\\wallet03_id.json"
+  }
+]
